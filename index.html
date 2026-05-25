@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cubo Mágico 3D</title>
+
+
+<style>
+  /* Reset: remove margens e paddings padrão do navegador */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* Layout geral: fundo azul-escuro, coluna centralizada */
+  body {
+    background: #1a1a2e;
+    color: #eee;
+    font-family: system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 1rem;
+  }
+
+  h1 { font-size: 1.4rem; font-weight: 500; margin-bottom: 0.75rem; color: #fff; letter-spacing: 0.05em; }
+
+  /* Faixa de botões de controle */
+  #controls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-bottom: 10px; }
+
+  /* Estilo base dos botões */
+  button {
+    background: #ffffff14;
+    border: 1px solid #ffffff30;
+    color: #eee;
+    border-radius: 8px;
+    padding: 5px 13px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  button:hover    { background: #ffffff28; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; } /* durante animações */
+
+  /* Cores especiais para botões de ação */
+  #btn-shuffle { border-color: #7c6fff80; color: #b3aaff; }
+  #btn-reset   { border-color: #ff666680; color: #ffaaaa; }
+
+  /* Placar: contador + mensagem de vitória */
+  #info { display: flex; gap: 20px; align-items: center; margin-bottom: 8px; font-size: 13px; color: #aaa; }
+  #victory-msg { color: #66ffaa; font-weight: 600; display: none; } /* oculto até vencer */
+
+  /* Canvas onde o Three.js vai desenhar */
+  canvas {
+    border-radius: 12px;
+    border: 1px solid #ffffff18;
+    cursor: grab;
+    touch-action: none; /* evita scroll ao arrastar no mobile */
+    display: block;
+  }
+  canvas:active { cursor: grabbing; }
+
+  p.hint { font-size: 12px; color: #666; margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<h1>🧩 Cubo Mágico 3D</h1>
+
+<!-- Botões para rotacionar cada face (U/D/F/B/L/R = notação padrão do cubo mágico) -->
+<div id="controls">
+  <button id="btn-U">Top (U)</button>
+  <button id="btn-D">Bottom (D)</button>
+  <button id="btn-F">Front (F)</button>
+  <button id="btn-B">Back (B)</button>
+  <button id="btn-L">Left (L)</button>
+  <button id="btn-R">Right (R)</button>
+  <button id="btn-shuffle">🔀 Embaralhar</button>
+  <button id="btn-reset">↺ Reset</button>
+</div>
+
+<!-- Placar -->
+<div id="info">
+  <span>Movimentos: <strong id="move-count">0</strong></span>
+  <span id="victory-msg">🏆 Resolvido!</span>
+</div>
+
+<!-- Canvas onde o Three.js vai renderizar a cena 3D nos próximos commits -->
+<canvas id="cube-canvas"></canvas>
+<p class="hint">Arraste para orbitar • Clique nos botões para girar faces</p>
+
+</body>
+</html>
