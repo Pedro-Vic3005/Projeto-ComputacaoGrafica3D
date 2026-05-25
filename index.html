@@ -40,7 +40,7 @@
 <p class="hint">Arraste para orbitar • Clique nos botões para girar faces</p>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-// feat: criação dos 27 cubinhos com cores por face
+// feat: rotação de faces com animação e pivot
 (function(){
 
   const canvas = document.getElementById('cube-canvas');
@@ -54,67 +54,122 @@
   const camera = new THREE.PerspectiveCamera(45, W / H, 0.1, 100);
   camera.position.set(4, 3.5, 5); camera.lookAt(0, 0, 0);
   scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-  const dl = new THREE.DirectionalLight(0xffffff, 0.5);
-  dl.position.set(5, 8, 5); scene.add(dl);
-
-  // Paleta de cores das 6 faces (convenção padrão do cubo mágico):
-  const COLORS = {
-    R: 0x00cc44, L: 0x0055ff,
-    U: 0xffffff, D: 0xffff00,
-    F: 0xff4400, B: 0xff8800
-  };
-
-  const BLACK = 0x111111; // faces internas do cubo (não visíveis ao jogador)
-
-  // GAP = 1.05: cada cubinho mede ~1 unidade, mas é posicionado
-  const GAP = 1.05;
-
-  let cubelets  = []; // array com todos os 27 cubinhos da cena
-  let moveCount = 0;  // contador de movimentos do jogador
-  let animating = false; // (usado nos commits seguintes)
-
-  // makeCubelet(x, y, z): cria um único cubinho na posição (x, y, z).
+  const dl = new THREE.DirectionalLight(0xffffff, 0.5); dl.position.set(5, 8, 5); scene.add(dl);
+  const COLORS = { R: 0x00cc44, L: 0x0055ff, U: 0xffffff, D: 0xffff00, F: 0xff4400, B: 0xff8800 };
+  const BLACK = 0x111111, GAP = 1.05;
+  let cubelets = [], moveCount = 0, animating = false;
   function makeCubelet(x, y, z) {
     const group = new THREE.Group();
-    group.position.set(x * GAP, y * GAP, z * GAP); // posição na grade
-
-    const geo = new THREE.BoxGeometry(0.92, 0.92, 0.92); // cubo ligeiramente menor que 1
-
+    group.position.set(x * GAP, y * GAP, z * GAP);
+    const geo = new THREE.BoxGeometry(0.92, 0.92, 0.92);
     const mats = [
-      new THREE.MeshLambertMaterial({ color: x ===  1 ? COLORS.R : BLACK }), // [0] direita
-      new THREE.MeshLambertMaterial({ color: x === -1 ? COLORS.L : BLACK }), // [1] esquerda
-      new THREE.MeshLambertMaterial({ color: y ===  1 ? COLORS.U : BLACK }), // [2] cima
-      new THREE.MeshLambertMaterial({ color: y === -1 ? COLORS.D : BLACK }), // [3] baixo
-      new THREE.MeshLambertMaterial({ color: z ===  1 ? COLORS.F : BLACK }), // [4] frente
-      new THREE.MeshLambertMaterial({ color: z === -1 ? COLORS.B : BLACK }), // [5] atrás
+      new THREE.MeshLambertMaterial({ color: x===1?COLORS.R:BLACK }),
+      new THREE.MeshLambertMaterial({ color: x===-1?COLORS.L:BLACK }),
+      new THREE.MeshLambertMaterial({ color: y===1?COLORS.U:BLACK }),
+      new THREE.MeshLambertMaterial({ color: y===-1?COLORS.D:BLACK }),
+      new THREE.MeshLambertMaterial({ color: z===1?COLORS.F:BLACK }),
+      new THREE.MeshLambertMaterial({ color: z===-1?COLORS.B:BLACK }),
     ];
-
-    const mesh = new THREE.Mesh(geo, mats); // une geometria + materiais
-    group.add(mesh);   // mesh entra no grupo
-    scene.add(group);  // grupo entra na cena
-    return group;
+    const mesh = new THREE.Mesh(geo, mats);
+    group.add(mesh); scene.add(group); return group;
   }
-
-  // buildCube(): constrói (ou reconstrói) o cubo completo.
   function buildCube() {
-    cubelets.forEach(c => scene.remove(c)); // limpa os cubinhos existentes
-    cubelets = [];
-
-    for (let x = -1; x <= 1; x++)       // eixo X: esquerda → direita
-      for (let y = -1; y <= 1; y++)     // eixo Y: baixo → cima
-        for (let z = -1; z <= 1; z++)   // eixo Z: atrás → frente
-          cubelets.push(makeCubelet(x, y, z));
-
+    cubelets.forEach(c => scene.remove(c)); cubelets = [];
+    for (let x=-1;x<=1;x++) for (let y=-1;y<=1;y++) for (let z=-1;z<=1;z++)
+      cubelets.push(makeCubelet(x, y, z));
     moveCount = 0;
     document.getElementById('move-count').textContent = 0;
     document.getElementById('victory-msg').style.display = 'none';
   }
+  buildCube();
 
-  buildCube(); // inicializa o cubo ao carregar a página
+  // getFace(axis, val): retorna os 9 cubinhos de uma face específica.
+  function getFace(axis, val) {
+    return cubelets.filter(c => {
+      const pos = new THREE.Vector3();
+      c.getWorldPosition(pos); // posição absoluta, ignora hierarquia de grupos
+      const v = axis === 'x' ? pos.x : axis === 'y' ? pos.y : pos.z;
+      return Math.round(v / GAP) === val;
+    });
+  }
 
-  // Renderiza a cena uma vez para exibir o cubo estático
-  renderer.render(scene, camera);
+  // setAllButtons(disabled): habilita ou desabilita todos os botões.
+  function setAllButtons(disabled) {
+    document.querySelectorAll('button').forEach(b => b.disabled = disabled);
+  }
 
+  // rotateFace(axis, val, dir, onDone): rotaciona 90° uma face, com animação.
+  function rotateFace(axis, val, dir, onDone) {
+    if (animating) return;
+    animating = true;
+    setAllButtons(true);
+
+    // ① Seleciona os 9 cubinhos da face
+    const face = getFace(axis, val);
+
+    // ② Cria o pivot e transfere os cubinhos para ele
+    const pivot = new THREE.Group();
+    scene.add(pivot);
+    face.forEach(c => { scene.remove(c); pivot.add(c); });
+
+    // Calcula o passo de rotação por frame
+    const total = Math.PI / 2 * dir; // 90° em radianos, com direção
+    const steps = 18;                // número de frames da animação
+    const step  = total / steps;     // ângulo por frame ≈ 5°
+    let frame   = 0;
+
+    // ③ Loop de animação frame a frame
+    function animate() {
+      if (frame < steps) {
+        // Incrementa a rotação do pivot no eixo correto
+        if      (axis === 'x') pivot.rotation.x += step;
+        else if (axis === 'y') pivot.rotation.y += step;
+        else                   pivot.rotation.z += step;
+        frame++;
+        requestAnimationFrame(animate); // agenda o próximo frame (~60fps)
+      } else {
+        // ④ Animação concluída: desancora os cubinhos do pivot
+        face.forEach(c => {
+          // applyMatrix4(pivot.matrixWorld):
+          c.applyMatrix4(pivot.matrixWorld);
+          scene.add(c);
+        });
+
+        scene.remove(pivot); // pivot foi usado, pode ser descartado
+
+        // Arredondamento: operações de float acumulam erros pequenos
+        face.forEach(c => {
+          ['x', 'y', 'z'].forEach(a => {
+            c.position[a] = Math.round(c.position[a] / GAP) * GAP;
+            c.rotation[a] = Math.round(c.rotation[a] / (Math.PI / 2)) * (Math.PI / 2);
+          });
+        });
+
+        animating = false;
+        setAllButtons(false);
+        if (onDone) onDone(); // chama o próximo passo (ex: embaralhar encadeado)
+      }
+      renderer.render(scene, camera); // redesenha a cena a cada frame
+    }
+
+    animate(); // dispara o primeiro frame
+    moveCount++;
+    document.getElementById('move-count').textContent = moveCount;
+  }
+
+  // Liga os botões de face à função rotateFace
+  // dir=-1 → rotação "positiva" visual | dir=1 → rotação "negativa" visual
+  document.getElementById('btn-U').onclick = () => rotateFace('y',  1, -1);
+  document.getElementById('btn-D').onclick = () => rotateFace('y', -1,  1);
+  document.getElementById('btn-F').onclick = () => rotateFace('z',  1, -1);
+  document.getElementById('btn-B').onclick = () => rotateFace('z', -1,  1);
+  document.getElementById('btn-L').onclick = () => rotateFace('x', -1,  1);
+  document.getElementById('btn-R').onclick = () => rotateFace('x',  1, -1);
+  document.getElementById('btn-reset').onclick = buildCube;
+
+  // Loop de renderização temporário (será substituído no Commit 6)
+  function loop() { requestAnimationFrame(loop); renderer.render(scene, camera); }
+  loop();
 
 })();
 </script>
