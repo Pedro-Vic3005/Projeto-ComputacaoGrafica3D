@@ -4,69 +4,24 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cubo Mágico 3D</title>
-
-
 <style>
-  /* Reset: remove margens e paddings padrão do navegador */
   * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  /* Layout geral: fundo azul-escuro, coluna centralizada */
-  body {
-    background: #1a1a2e;
-    color: #eee;
-    font-family: system-ui, sans-serif;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    min-height: 100vh;
-    padding: 1rem;
-  }
-
+  body { background: #1a1a2e; color: #eee; font-family: system-ui, sans-serif; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 1rem; }
   h1 { font-size: 1.4rem; font-weight: 500; margin-bottom: 0.75rem; color: #fff; letter-spacing: 0.05em; }
-
-  /* Faixa de botões de controle */
   #controls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-bottom: 10px; }
-
-  /* Estilo base dos botões */
-  button {
-    background: #ffffff14;
-    border: 1px solid #ffffff30;
-    color: #eee;
-    border-radius: 8px;
-    padding: 5px 13px;
-    font-size: 13px;
-    cursor: pointer;
-    transition: background 0.15s;
-  }
-  button:hover    { background: #ffffff28; }
-  button:disabled { opacity: 0.4; cursor: not-allowed; } /* durante animações */
-
-  /* Cores especiais para botões de ação */
+  button { background: #ffffff14; border: 1px solid #ffffff30; color: #eee; border-radius: 8px; padding: 5px 13px; font-size: 13px; cursor: pointer; transition: background 0.15s; }
+  button:hover { background: #ffffff28; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
   #btn-shuffle { border-color: #7c6fff80; color: #b3aaff; }
   #btn-reset   { border-color: #ff666680; color: #ffaaaa; }
-
-  /* Placar: contador + mensagem de vitória */
   #info { display: flex; gap: 20px; align-items: center; margin-bottom: 8px; font-size: 13px; color: #aaa; }
-  #victory-msg { color: #66ffaa; font-weight: 600; display: none; } /* oculto até vencer */
-
-  /* Canvas onde o Three.js vai desenhar */
-  canvas {
-    border-radius: 12px;
-    border: 1px solid #ffffff18;
-    cursor: grab;
-    touch-action: none; /* evita scroll ao arrastar no mobile */
-    display: block;
-  }
+  #victory-msg { color: #66ffaa; font-weight: 600; display: none; }
+  canvas { border-radius: 12px; border: 1px solid #ffffff18; cursor: grab; touch-action: none; display: block; }
   canvas:active { cursor: grabbing; }
-
-  p.hint { font-size: 12px; color: #666; margin-top: 8px; }
-</style>
+  p.hint { font-size: 12px; color: #666; margin-top: 8px; }</style>
 </head>
 <body>
-
 <h1>🧩 Cubo Mágico 3D</h1>
-
-<!-- Botões para rotacionar cada face (U/D/F/B/L/R = notação padrão do cubo mágico) -->
 <div id="controls">
   <button id="btn-U">Top (U)</button>
   <button id="btn-D">Bottom (D)</button>
@@ -77,16 +32,61 @@
   <button id="btn-shuffle">🔀 Embaralhar</button>
   <button id="btn-reset">↺ Reset</button>
 </div>
-
-<!-- Placar -->
 <div id="info">
   <span>Movimentos: <strong id="move-count">0</strong></span>
   <span id="victory-msg">🏆 Resolvido!</span>
 </div>
-
-<!-- Canvas onde o Three.js vai renderizar a cena 3D nos próximos commits -->
 <canvas id="cube-canvas"></canvas>
 <p class="hint">Arraste para orbitar • Clique nos botões para girar faces</p>
 
+<!-- Importação do Three.js via CDN — necessário antes do nosso script -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<script>
+
+// IIFE: isola todas as variáveis do escopo global do navegador
+(function(){
+
+  // ── CANVAS ──────────────────────────────────────────────────
+  const canvas = document.getElementById('cube-canvas');
+
+  // Responsivo: até 600px de largura, ajusta à tela se menor
+  const W = Math.min(window.innerWidth - 32, 600), H = 420;
+
+  // devicePixelRatio: resolve a tela em alta resolução (Retina, 4K)
+  // Sem isso a imagem ficaria borrada em telas modernas
+  canvas.width  = W * devicePixelRatio;
+  canvas.height = H * devicePixelRatio;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+
+  // ── RENDERER ────────────────────────────────────────────────
+  // WebGLRenderer: o "pintor" que usa a GPU para desenhar a cena.
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(devicePixelRatio);
+  renderer.setSize(W, H);
+  renderer.setClearColor(0x000000, 0); // fundo preto com opacidade 0 = transparente
+
+  // ── CENA ────────────────────────────────────────────────────
+  // Scene: o "palco" 3D. Tudo que deve aparecer na tela precisa
+  const scene = new THREE.Scene();
+
+  // ── CÂMERA ──────────────────────────────────────────────────
+  // PerspectiveCamera(fov, aspect, near, far):
+  const camera = new THREE.PerspectiveCamera(45, W / H, 0.1, 100);
+  camera.position.set(4, 3.5, 5); // posição inicial: ligeiramente acima e à frente
+  camera.lookAt(0, 0, 0);         // sempre aponta para o centro do cubo
+
+  // ── ILUMINAÇÃO ──────────────────────────────────────────────
+  // AmbientLight: luz uniforme que ilumina tudo igualmente.
+  scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+
+  // DirectionalLight: luz direcional com raios paralelos (como o sol).
+  const dl = new THREE.DirectionalLight(0xffffff, 0.5);
+  dl.position.set(5, 8, 5);
+  scene.add(dl);
+
+})();
+</script>
 </body>
 </html>
