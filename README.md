@@ -31,6 +31,7 @@ O projeto renderiza um cubo 3×3×3 com 27 cubinhos coloridos em uma cena 3D int
 | HTML5 | — | Estrutura da página e elemento `<canvas>` |
 | CSS3 | — | Layout e estilização (tema escuro) |
 | JavaScript (ES6+) | — | Lógica do cubo, animações e interações |
+| Claude IA | Sonnet 4.6 | Auxiliaçâo da estrutura e movimentação do Cubo |
 
 Nenhum framework adicional foi utilizado. O Three.js é carregado via CDN do `cdnjs.cloudflare.com`.
 
