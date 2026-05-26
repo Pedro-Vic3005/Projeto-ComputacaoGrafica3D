@@ -40,16 +40,16 @@
 <p class="hint">Arraste para orbitar • Clique nos botões para girar faces</p>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-// feat: rotação de faces com animação e pivot
+// feat: detecção de vitória, contador e embaralhar
 (function(){
 
+  // ── SETUP (Commits 1–4 consolidados) ────────────────────────
   const canvas = document.getElementById('cube-canvas');
   const W = Math.min(window.innerWidth - 32, 600), H = 420;
   canvas.width = W * devicePixelRatio; canvas.height = H * devicePixelRatio;
   canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-  renderer.setPixelRatio(devicePixelRatio); renderer.setSize(W, H);
-  renderer.setClearColor(0x000000, 0);
+  renderer.setPixelRatio(devicePixelRatio); renderer.setSize(W, H); renderer.setClearColor(0x000000, 0);
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(45, W / H, 0.1, 100);
   camera.position.set(4, 3.5, 5); camera.lookAt(0, 0, 0);
@@ -59,106 +59,44 @@
   const BLACK = 0x111111, GAP = 1.05;
   let cubelets = [], moveCount = 0, animating = false;
   function makeCubelet(x, y, z) {
-    const group = new THREE.Group();
-    group.position.set(x * GAP, y * GAP, z * GAP);
-    const geo = new THREE.BoxGeometry(0.92, 0.92, 0.92);
+    const group = new THREE.Group(); group.position.set(x*GAP, y*GAP, z*GAP);
+    const geo = new THREE.BoxGeometry(0.92,0.92,0.92);
     const mats = [
-      new THREE.MeshLambertMaterial({ color: x===1?COLORS.R:BLACK }),
-      new THREE.MeshLambertMaterial({ color: x===-1?COLORS.L:BLACK }),
-      new THREE.MeshLambertMaterial({ color: y===1?COLORS.U:BLACK }),
-      new THREE.MeshLambertMaterial({ color: y===-1?COLORS.D:BLACK }),
-      new THREE.MeshLambertMaterial({ color: z===1?COLORS.F:BLACK }),
-      new THREE.MeshLambertMaterial({ color: z===-1?COLORS.B:BLACK }),
+      new THREE.MeshLambertMaterial({color:x===1?COLORS.R:BLACK}),
+      new THREE.MeshLambertMaterial({color:x===-1?COLORS.L:BLACK}),
+      new THREE.MeshLambertMaterial({color:y===1?COLORS.U:BLACK}),
+      new THREE.MeshLambertMaterial({color:y===-1?COLORS.D:BLACK}),
+      new THREE.MeshLambertMaterial({color:z===1?COLORS.F:BLACK}),
+      new THREE.MeshLambertMaterial({color:z===-1?COLORS.B:BLACK}),
     ];
-    const mesh = new THREE.Mesh(geo, mats);
-    group.add(mesh); scene.add(group); return group;
+    const mesh = new THREE.Mesh(geo,mats); group.add(mesh); scene.add(group); return group;
   }
   function buildCube() {
-    cubelets.forEach(c => scene.remove(c)); cubelets = [];
-    for (let x=-1;x<=1;x++) for (let y=-1;y<=1;y++) for (let z=-1;z<=1;z++)
-      cubelets.push(makeCubelet(x, y, z));
-    moveCount = 0;
-    document.getElementById('move-count').textContent = 0;
-    document.getElementById('victory-msg').style.display = 'none';
+    cubelets.forEach(c=>scene.remove(c)); cubelets=[];
+    for(let x=-1;x<=1;x++) for(let y=-1;y<=1;y++) for(let z=-1;z<=1;z++) cubelets.push(makeCubelet(x,y,z));
+    moveCount=0; document.getElementById('move-count').textContent=0; document.getElementById('victory-msg').style.display='none';
   }
   buildCube();
-
-  // getFace(axis, val): retorna os 9 cubinhos de uma face específica.
   function getFace(axis, val) {
-    return cubelets.filter(c => {
-      const pos = new THREE.Vector3();
-      c.getWorldPosition(pos); // posição absoluta, ignora hierarquia de grupos
-      const v = axis === 'x' ? pos.x : axis === 'y' ? pos.y : pos.z;
-      return Math.round(v / GAP) === val;
-    });
+    return cubelets.filter(c => { const pos=new THREE.Vector3(); c.getWorldPosition(pos); const v=axis==='x'?pos.x:axis==='y'?pos.y:pos.z; return Math.round(v/GAP)===val; });
   }
-
-  // setAllButtons(disabled): habilita ou desabilita todos os botões.
-  function setAllButtons(disabled) {
-    document.querySelectorAll('button').forEach(b => b.disabled = disabled);
-  }
-
-  // rotateFace(axis, val, dir, onDone): rotaciona 90° uma face, com animação.
+  function setAllButtons(disabled) { document.querySelectorAll('button').forEach(b=>b.disabled=disabled); }
   function rotateFace(axis, val, dir, onDone) {
-    if (animating) return;
-    animating = true;
-    setAllButtons(true);
-
-    // ① Seleciona os 9 cubinhos da face
-    const face = getFace(axis, val);
-
-    // ② Cria o pivot e transfere os cubinhos para ele
-    const pivot = new THREE.Group();
-    scene.add(pivot);
-    face.forEach(c => { scene.remove(c); pivot.add(c); });
-
-    // Calcula o passo de rotação por frame
-    const total = Math.PI / 2 * dir; // 90° em radianos, com direção
-    const steps = 18;                // número de frames da animação
-    const step  = total / steps;     // ângulo por frame ≈ 5°
-    let frame   = 0;
-
-    // ③ Loop de animação frame a frame
+    if(animating) return; animating=true; setAllButtons(true);
+    const face=getFace(axis,val); const pivot=new THREE.Group(); scene.add(pivot);
+    face.forEach(c=>{scene.remove(c);pivot.add(c);});
+    const total=Math.PI/2*dir, steps=18, step=total/steps; let frame=0;
     function animate() {
-      if (frame < steps) {
-        // Incrementa a rotação do pivot no eixo correto
-        if      (axis === 'x') pivot.rotation.x += step;
-        else if (axis === 'y') pivot.rotation.y += step;
-        else                   pivot.rotation.z += step;
-        frame++;
-        requestAnimationFrame(animate); // agenda o próximo frame (~60fps)
-      } else {
-        // ④ Animação concluída: desancora os cubinhos do pivot
-        face.forEach(c => {
-          // applyMatrix4(pivot.matrixWorld):
-          c.applyMatrix4(pivot.matrixWorld);
-          scene.add(c);
-        });
-
-        scene.remove(pivot); // pivot foi usado, pode ser descartado
-
-        // Arredondamento: operações de float acumulam erros pequenos
-        face.forEach(c => {
-          ['x', 'y', 'z'].forEach(a => {
-            c.position[a] = Math.round(c.position[a] / GAP) * GAP;
-            c.rotation[a] = Math.round(c.rotation[a] / (Math.PI / 2)) * (Math.PI / 2);
-          });
-        });
-
-        animating = false;
-        setAllButtons(false);
-        if (onDone) onDone(); // chama o próximo passo (ex: embaralhar encadeado)
+      if(frame<steps) { if(axis==='x') pivot.rotation.x+=step; else if(axis==='y') pivot.rotation.y+=step; else pivot.rotation.z+=step; frame++; requestAnimationFrame(animate); }
+      else {
+        face.forEach(c=>{c.applyMatrix4(pivot.matrixWorld);scene.add(c);}); scene.remove(pivot);
+        face.forEach(c=>{['x','y','z'].forEach(a=>{c.position[a]=Math.round(c.position[a]/GAP)*GAP;c.rotation[a]=Math.round(c.rotation[a]/(Math.PI/2))*(Math.PI/2);});});
+        animating=false; setAllButtons(false); if(onDone) onDone(); checkVictory();
       }
-      renderer.render(scene, camera); // redesenha a cena a cada frame
+      renderer.render(scene,camera);
     }
-
-    animate(); // dispara o primeiro frame
-    moveCount++;
-    document.getElementById('move-count').textContent = moveCount;
+    animate(); moveCount++; document.getElementById('move-count').textContent=moveCount;
   }
-
-  // Liga os botões de face à função rotateFace
-  // dir=-1 → rotação "positiva" visual | dir=1 → rotação "negativa" visual
   document.getElementById('btn-U').onclick = () => rotateFace('y',  1, -1);
   document.getElementById('btn-D').onclick = () => rotateFace('y', -1,  1);
   document.getElementById('btn-F').onclick = () => rotateFace('z',  1, -1);
@@ -167,7 +105,63 @@
   document.getElementById('btn-R').onclick = () => rotateFace('x',  1, -1);
   document.getElementById('btn-reset').onclick = buildCube;
 
-  // Loop de renderização temporário (será substituído no Commit 6)
+  // checkVictory(): verifica se o cubo está completamente resolvido.
+  function checkVictory() {
+    const faceChecks = [
+      { axis: 'y', val:  1, fi: 2 }, // face superior  (U)
+      { axis: 'y', val: -1, fi: 3 }, // face inferior  (D)
+      { axis: 'z', val:  1, fi: 4 }, // face frontal   (F)
+      { axis: 'z', val: -1, fi: 5 }, // face traseira  (B)
+      { axis: 'x', val:  1, fi: 0 }, // face direita   (R)
+      { axis: 'x', val: -1, fi: 1 }, // face esquerda  (L)
+    ];
+
+    for (const fc of faceChecks) {
+      const face = getFace(fc.axis, fc.val);
+      if (!face.length) return; // segurança: sem cubinhos = algo errado
+
+      // Coleta a cor (hex) do lado `fi` de cada cubinho da face
+      const colors = face.map(c => c.children[0].material[fc.fi].color.getHex());
+
+      // Se o Set tiver mais de 1 cor, essa face não está uniforme
+      if (new Set(colors).size > 1) return;
+    }
+
+    // Todas as 6 faces passaram: cubo resolvido!
+    // moveCount > 0 garante que não exibe vitória no estado inicial
+    if (moveCount > 0) document.getElementById('victory-msg').style.display = 'inline';
+  }
+
+  // Botão Embaralhar: executa 20 rotações aleatórias em sequência,
+  document.getElementById('btn-shuffle').onclick = function () {
+    if (animating) return;
+
+    // Todos os 6 movimentos possíveis (face + sentido)
+    const axes = [['y',1,-1],['y',-1,1],['z',1,-1],['z',-1,1],['x',-1,1],['x',1,-1]];
+
+    // Sorteia 20 movimentos aleatórios
+    const moves = Array.from({ length: 20 }, () => axes[Math.floor(Math.random() * axes.length)]);
+
+    // Zera o contador antes de embaralhar (o embaralho não conta como jogadas)
+    moveCount = 0;
+    document.getElementById('move-count').textContent = 0;
+    document.getElementById('victory-msg').style.display = 'none';
+
+    let i = 0;
+    function next() {
+      if (i < moves.length) {
+        const m = moves[i++];
+        rotateFace(m[0], m[1], m[2], next); // ao terminar, chama next novamente
+      } else {
+        // Embaralho concluído: zera para o jogador começar do zero
+        moveCount = 0;
+        document.getElementById('move-count').textContent = 0;
+      }
+    }
+    next(); // dispara o primeiro movimento
+  };
+
+  // Loop de renderização (será mantido no Commit 6)
   function loop() { requestAnimationFrame(loop); renderer.render(scene, camera); }
   loop();
 
