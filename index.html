@@ -4,24 +4,68 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cubo Mágico 3D</title>
+
 <style>
+  /* Reset básico: remove margens e paddings padrão do navegador */
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #1a1a2e; color: #eee; font-family: system-ui, sans-serif; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 1rem; }
+
+  /* Corpo da página: fundo azul-escuro, itens centralizados em coluna */
+  body {
+    background: #1a1a2e;
+    color: #eee;
+    font-family: system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 1rem;
+  }
+
   h1 { font-size: 1.4rem; font-weight: 500; margin-bottom: 0.75rem; color: #fff; letter-spacing: 0.05em; }
+
+  /* Área dos botões de controle das faces */
   #controls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-bottom: 10px; }
-  button { background: #ffffff14; border: 1px solid #ffffff30; color: #eee; border-radius: 8px; padding: 5px 13px; font-size: 13px; cursor: pointer; transition: background 0.15s; }
+
+  /* Estilo base dos botões */
+  button {
+    background: #ffffff14;
+    border: 1px solid #ffffff30;
+    color: #eee;
+    border-radius: 8px;
+    padding: 5px 13px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
   button:hover { background: #ffffff28; }
+
+  /* Botão desabilitado durante animações */
   button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Cores especiais para os botões de ação */
   #btn-shuffle { border-color: #7c6fff80; color: #b3aaff; }
   #btn-reset   { border-color: #ff666680; color: #ffaaaa; }
+
+  /* Área de informações: contador de movimentos e mensagem de vitória */
   #info { display: flex; gap: 20px; align-items: center; margin-bottom: 8px; font-size: 13px; color: #aaa; }
   #victory-msg { color: #66ffaa; font-weight: 600; display: none; }
-  canvas { border-radius: 12px; border: 1px solid #ffffff18; cursor: grab; touch-action: none; display: block; }
+
+  /* O <canvas> é onde o Three.js vai desenhar a cena 3D */
+  canvas {
+    border-radius: 12px;
+    border: 1px solid #ffffff18;
+    cursor: grab;
+    touch-action: none; /* impede scroll ao arrastar no mobile */
+    display: block;
+  }
   canvas:active { cursor: grabbing; }
   p.hint { font-size: 12px; color: #666; margin-top: 8px; }</style>
 </head>
 <body>
+
 <h1>🧩 Cubo Mágico 3D</h1>
+
+<!-- Botões para girar cada uma das 6 faces do cubo -->
 <div id="controls">
   <button id="btn-U">Top (U)</button>
   <button id="btn-D">Bottom (D)</button>
@@ -32,91 +76,331 @@
   <button id="btn-shuffle">🔀 Embaralhar</button>
   <button id="btn-reset">↺ Reset</button>
 </div>
+
+<!-- Placar: contador de movimentos e mensagem de vitória -->
 <div id="info">
   <span>Movimentos: <strong id="move-count">0</strong></span>
   <span id="victory-msg">🏆 Resolvido!</span>
 </div>
+
+<!-- Canvas onde o Three.js renderiza a cena 3D -->
 <canvas id="cube-canvas"></canvas>
 <p class="hint">Arraste para orbitar • Clique nos botões para girar faces</p>
+
+<!-- Importação da biblioteca Three.js via CDN -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
 <script>
-// feat: criação dos 27 cubinhos com cores por face
+
 (function(){
 
   const canvas = document.getElementById('cube-canvas');
-  const W = Math.min(window.innerWidth - 32, 600), H = 420;
-  canvas.width = W * devicePixelRatio; canvas.height = H * devicePixelRatio;
-  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-  renderer.setPixelRatio(devicePixelRatio); renderer.setSize(W, H);
-  renderer.setClearColor(0x000000, 0);
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(45, W / H, 0.1, 100);
-  camera.position.set(4, 3.5, 5); camera.lookAt(0, 0, 0);
-  scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-  const dl = new THREE.DirectionalLight(0xffffff, 0.5);
-  dl.position.set(5, 8, 5); scene.add(dl);
 
-  // Paleta de cores das 6 faces (convenção padrão do cubo mágico):
+  // Largura máxima de 600px, mas se a tela for menor, usa a tela (responsivo)
+  const W = Math.min(window.innerWidth - 32, 600), H = 420;
+
+  // Multiplica pelo devicePixelRatio para telas de alta resolução (Retina, 4K)
+  // Sem isso, a imagem ficaria borrada em telas modernas
+  canvas.width  = W * devicePixelRatio;
+  canvas.height = H * devicePixelRatio;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+
+  // ============================================================
+
+  // O WebGLRenderer é o "pintor": ele usa a GPU do computador para
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(devicePixelRatio);
+  renderer.setSize(W, H);
+  renderer.setClearColor(0x000000, 0); // cor de fundo: preto com opacidade 0 (transparente)
+
+  // ============================================================
+
+  // A CENA é o "mundo 3D": todos os objetos, luzes e grupos ficam aqui.
+  const scene = new THREE.Scene();
+
+  // A CÂMERA define o ponto de vista do espectador.
+  const camera = new THREE.PerspectiveCamera(45, W / H, 0.1, 100);
+  camera.position.set(4, 3.5, 5); // posição inicial: ligeiramente acima e à frente
+  camera.lookAt(0, 0, 0);         // sempre olhando para o centro do cubo
+
+  // ============================================================
+
+  // AmbientLight: luz que ilumina todos os objetos igualmente,
+  scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+
+  // DirectionalLight: luz direcional, como o sol — raios paralelos
+  const dl = new THREE.DirectionalLight(0xffffff, 0.5);
+  dl.position.set(5, 8, 5);
+  scene.add(dl);
+
+  // ============================================================
+
+  // Paleta de cores: cada letra representa uma face do cubo mágico.
   const COLORS = {
-    R: 0x00cc44, L: 0x0055ff,
-    U: 0xffffff, D: 0xffff00,
-    F: 0xff4400, B: 0xff8800
+    R: 0x00cc44, // verde  — face direita
+    L: 0x0055ff, // azul   — face esquerda
+    U: 0xffffff, // branco — face superior
+    D: 0xffff00, // amarelo — face inferior
+    F: 0xff4400, // vermelho — face frontal
+    B: 0xff8800  // laranja — face traseira
   };
 
-  const BLACK = 0x111111; // faces internas do cubo (não visíveis ao jogador)
+  const BLACK = 0x111111; // cor das faces internas (não visíveis ao jogador)
 
-  // GAP = 1.05: cada cubinho mede ~1 unidade, mas é posicionado
+  // GAP: espaçamento entre os cubinhos.
   const GAP = 1.05;
 
-  let cubelets  = []; // array com todos os 27 cubinhos da cena
-  let moveCount = 0;  // contador de movimentos do jogador
-  let animating = false; // (usado nos commits seguintes)
+  // ============================================================
 
-  // makeCubelet(x, y, z): cria um único cubinho na posição (x, y, z).
+  let cubelets  = [];    // array com todos os 27 cubinhos da cena
+  let moveCount = 0;     // contador de movimentos do jogador
+  let animating = false; // trava para impedir sobreposição de animações
+
+  // ============================================================
+
+  // Cada cubinho é composto de dois objetos Three.js:
   function makeCubelet(x, y, z) {
     const group = new THREE.Group();
-    group.position.set(x * GAP, y * GAP, z * GAP); // posição na grade
 
-    const geo = new THREE.BoxGeometry(0.92, 0.92, 0.92); // cubo ligeiramente menor que 1
+    // Posiciona o cubinho multiplicando a coordenada de grade pelo GAP
+    // Ex: x=1 → posição 1.05, x=-1 → posição -1.05
+    group.position.set(x * GAP, y * GAP, z * GAP);
 
+    // BoxGeometry(largura, altura, profundidade): cria um cubo 3D
+    // 0.92 deixa uma fresta visual entre os cubinhos
+    const geo = new THREE.BoxGeometry(0.92, 0.92, 0.92);
+
+    // Um BoxGeometry tem 6 faces. O Three.js aceita um ARRAY de materiais,
     const mats = [
-      new THREE.MeshLambertMaterial({ color: x ===  1 ? COLORS.R : BLACK }), // [0] direita
-      new THREE.MeshLambertMaterial({ color: x === -1 ? COLORS.L : BLACK }), // [1] esquerda
-      new THREE.MeshLambertMaterial({ color: y ===  1 ? COLORS.U : BLACK }), // [2] cima
-      new THREE.MeshLambertMaterial({ color: y === -1 ? COLORS.D : BLACK }), // [3] baixo
-      new THREE.MeshLambertMaterial({ color: z ===  1 ? COLORS.F : BLACK }), // [4] frente
-      new THREE.MeshLambertMaterial({ color: z === -1 ? COLORS.B : BLACK }), // [5] atrás
+      new THREE.MeshLambertMaterial({ color: x ===  1 ? COLORS.R : BLACK }), // face direita
+      new THREE.MeshLambertMaterial({ color: x === -1 ? COLORS.L : BLACK }), // face esquerda
+      new THREE.MeshLambertMaterial({ color: y ===  1 ? COLORS.U : BLACK }), // face superior
+      new THREE.MeshLambertMaterial({ color: y === -1 ? COLORS.D : BLACK }), // face inferior
+      new THREE.MeshLambertMaterial({ color: z ===  1 ? COLORS.F : BLACK }), // face frontal
+      new THREE.MeshLambertMaterial({ color: z === -1 ? COLORS.B : BLACK }), // face traseira
     ];
 
+    // MeshLambertMaterial: material que reage à iluminação da cena.
+
     const mesh = new THREE.Mesh(geo, mats); // une geometria + materiais
-    group.add(mesh);   // mesh entra no grupo
-    scene.add(group);  // grupo entra na cena
+    group.add(mesh);   // adiciona a malha ao grupo
+    scene.add(group);  // adiciona o grupo à cena 3D
     return group;
   }
 
-  // buildCube(): constrói (ou reconstrói) o cubo completo.
+  // Usa 3 loops aninhados para gerar coordenadas de -1 a 1 em X, Y e Z.
   function buildCube() {
-    cubelets.forEach(c => scene.remove(c)); // limpa os cubinhos existentes
+    // Remove todos os cubinhos anteriores da cena
+    cubelets.forEach(c => scene.remove(c));
     cubelets = [];
 
-    for (let x = -1; x <= 1; x++)       // eixo X: esquerda → direita
-      for (let y = -1; y <= 1; y++)     // eixo Y: baixo → cima
-        for (let z = -1; z <= 1; z++)   // eixo Z: atrás → frente
+    // Loop triplo: x, y, z de -1 a 1 → 27 cubinhos
+    for (let x = -1; x <= 1; x++)
+      for (let y = -1; y <= 1; y++)
+        for (let z = -1; z <= 1; z++)
           cubelets.push(makeCubelet(x, y, z));
 
+    // Reinicia o placar e esconde a mensagem de vitória
     moveCount = 0;
     document.getElementById('move-count').textContent = 0;
     document.getElementById('victory-msg').style.display = 'none';
   }
 
-  buildCube(); // inicializa o cubo ao carregar a página
+  buildCube(); // chama imediatamente para inicializar o cubo ao carregar a página
 
-  // Renderiza a cena uma vez para exibir o cubo estático
-  renderer.render(scene, camera);
+  // Filtra os 9 cubinhos que pertencem a uma determinada face.
+  function getFace(axis, val) {
+    return cubelets.filter(c => {
+      const pos = new THREE.Vector3();
+      c.getWorldPosition(pos); // posição absoluta na cena (ignora hierarquia de grupos)
+      const v = axis === 'x' ? pos.x : axis === 'y' ? pos.y : pos.z;
+      return Math.round(v / GAP) === val;
+    });
+  }
 
+  // Durante uma animação, desabilitamos todos os botões para evitar
+  function setAllButtons(disabled) {
+    document.querySelectorAll('button').forEach(b => b.disabled = disabled);
+  }
 
-})();
+  // Esta é a função mais complexa do projeto. Ela rotaciona 90°
+  function rotateFace(axis, val, dir, onDone) {
+    if (animating) return; // impede sobreposição de animações
+    animating = true;
+    setAllButtons(true); // desabilita botões durante a animação
+
+    // ETAPA 1: pega os 9 cubinhos da face
+    const face = getFace(axis, val);
+
+    // ETAPA 2: cria o pivot e move os cubinhos para dentro dele
+    // O PIVOT é um Group vazio que serve como "centro de rotação".
+    const pivot = new THREE.Group();
+    scene.add(pivot);
+    face.forEach(c => {
+      scene.remove(c);  // remove da cena diretamente
+      pivot.add(c);     // adiciona como filho do pivot
+    });
+
+    // Calcula o ângulo total (90°) e divide em 18 passos para animação suave
+    const total = Math.PI / 2 * dir; // Math.PI/2 = 90 graus em radianos
+    const steps = 18;                // quantidade de frames da animação
+    const step  = total / steps;     // ângulo por frame ≈ 5°
+    let frame   = 0;
+
+    // ETAPA 3: loop de animação frame a frame
+    function animate() {
+      if (frame < steps) {
+        // Incrementa a rotação do pivot no eixo correto
+        if      (axis === 'x') pivot.rotation.x += step;
+        else if (axis === 'y') pivot.rotation.y += step;
+        else                   pivot.rotation.z += step;
+
+        frame++;
+        requestAnimationFrame(animate); // agenda o próximo frame (≈60fps)
+      } else {
+        // ETAPA 4: animação concluída — "desancorar" os cubinhos do pivot
+
+        face.forEach(c => {
+          // applyMatrix4(pivot.matrixWorld):
+          c.applyMatrix4(pivot.matrixWorld);
+          scene.add(c); // devolve o cubinho à cena diretamente (sem o pivot)
+        });
+
+        scene.remove(pivot); // descarta o pivot — ele não é mais necessário
+
+        // Arredondamento de posição e rotação:
+        face.forEach(c => {
+          ['x', 'y', 'z'].forEach(a => {
+            c.position[a] = Math.round(c.position[a] / GAP) * GAP;
+            c.rotation[a] = Math.round(c.rotation[a] / (Math.PI / 2)) * (Math.PI / 2);
+          });
+        });
+
+        animating = false;
+        setAllButtons(false);   // reabilita os botões
+        if (onDone) onDone();   // chama o callback (ex: próximo movimento do embaralhar)
+        checkVictory();         // verifica se o cubo foi resolvido
+      }
+
+      // Redesenha a cena a cada frame (tanto durante quanto após a animação)
+      renderer.render(scene, camera);
+    }
+
+    animate(); // dispara o primeiro frame da animação
+
+    // Incrementa o contador de movimentos imediatamente (não espera a animação)
+    moveCount++;
+    document.getElementById('move-count').textContent = moveCount;
+  }
+
+  // Para cada uma das 6 faces, verifica se todos os 9 cubinhos
+  function checkVictory() {
+    const faceChecks = [
+      { axis: 'y', val:  1, fi: 2 }, // face superior
+      { axis: 'y', val: -1, fi: 3 }, // face inferior
+      { axis: 'z', val:  1, fi: 4 }, // face frontal
+      { axis: 'z', val: -1, fi: 5 }, // face traseira
+      { axis: 'x', val:  1, fi: 0 }, // face direita
+      { axis: 'x', val: -1, fi: 1 }, // face esquerda
+    ];
+
+    for (const fc of faceChecks) {
+      const face = getFace(fc.axis, fc.val);
+      if (!face.length) return; // segurança: se não achou cubinhos, sai
+
+      // Coleta a cor (em hexadecimal) do lado específico de cada cubinho
+      const colors = face.map(c => c.children[0].material[fc.fi].color.getHex());
+
+      // Se o Set tiver mais de 1 cor, essa face não está completa → sai sem vitória
+      if (new Set(colors).size > 1) return;
+    }
+
+    // Se chegou aqui, todas as 6 faces passaram — cubo resolvido!
+    if (moveCount > 0) document.getElementById('victory-msg').style.display = 'inline';
+  }
+
+  // Cada botão chama rotateFace com os parâmetros da face correspondente.
+  document.getElementById('btn-U').onclick = () => rotateFace('y',  1, -1); // face superior
+  document.getElementById('btn-D').onclick = () => rotateFace('y', -1,  1); // face inferior
+  document.getElementById('btn-F').onclick = () => rotateFace('z',  1, -1); // face frontal
+  document.getElementById('btn-B').onclick = () => rotateFace('z', -1,  1); // face traseira
+  document.getElementById('btn-L').onclick = () => rotateFace('x', -1,  1); // face esquerda
+  document.getElementById('btn-R').onclick = () => rotateFace('x',  1, -1); // face direita
+  document.getElementById('btn-reset').onclick = buildCube;                  // reconstrói o cubo
+
+  // Gera 20 movimentos aleatórios e os executa em sequência,
+  document.getElementById('btn-shuffle').onclick = function () {
+    if (animating) return;
+
+    // Todos os 6 movimentos possíveis (face + sentido)
+    const axes = [['y',1,-1],['y',-1,1],['z',1,-1],['z',-1,1],['x',-1,1],['x',1,-1]];
+
+    // Gera 20 movimentos aleatórios
+    const moves = Array.from({ length: 20 }, () => axes[Math.floor(Math.random() * axes.length)]);
+
+    // Reinicia o contador (o embaralho não conta como jogadas do usuário)
+    moveCount = 0;
+    document.getElementById('move-count').textContent = 0;
+    document.getElementById('victory-msg').style.display = 'none';
+
+    let i = 0;
+    function next() {
+      if (i < moves.length) {
+        const m = moves[i++];
+        rotateFace(m[0], m[1], m[2], next); // executa o movimento e chama next ao terminar
+      } else {
+        // Ao terminar o embaralho, zera o contador para o jogador começar do zero
+        moveCount = 0;
+        document.getElementById('move-count').textContent = 0;
+      }
+    }
+    next(); // dispara o primeiro movimento
+  };
+
+  // Implementação manual de câmera orbital sem depender do OrbitControls.
+  let isDragging = false, lastX = 0, lastY = 0;
+
+  canvas.addEventListener('pointerdown', e => {
+    isDragging = true;
+    lastX = e.clientX;
+    lastY = e.clientY;
+  });
+
+  canvas.addEventListener('pointerup', () => {
+    isDragging = false;
+  });
+
+  canvas.addEventListener('pointermove', e => {
+    if (!isDragging) return;
+
+    // Calcula o quanto o mouse se moveu desde o último frame
+    const dx = e.clientX - lastX;
+    const dy = e.clientY - lastY;
+    lastX = e.clientX;
+    lastY = e.clientY;
+
+    // Cria um quaternion representando a rotação desejada
+    // 0.01 é a sensibilidade do arrasto (menor = mais lento)
+    const q = new THREE.Quaternion().setFromEuler(
+      new THREE.Euler(-dy * 0.01, -dx * 0.01, 0, 'XYZ')
+    );
+
+    // Aplica a rotação à posição da câmera (ela orbita ao redor da origem)
+    camera.position.applyQuaternion(q);
+
+    // Mantém a câmera sempre apontando para o centro do cubo
+    camera.lookAt(0, 0, 0);
+  });
+
+  // requestAnimationFrame(loop) agenda a função loop para rodar
+  function loop() {
+    requestAnimationFrame(loop);
+    renderer.render(scene, camera);
+  }
+  loop(); // inicia o loop
+
+})(); // fim da IIFE
 </script>
 </body>
 </html>
