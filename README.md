@@ -153,12 +153,12 @@ O projeto foi desenvolvido em **6 commits incrementais**, divididos entre 3 inte
 
 | Commit | Integrante | Descrição |
 |---|---|---|
-| `init: estrutura HTML e estilos CSS` | Pessoa 1 | Canvas, botões, placar e CSS |
-| `feat: setup Three.js (cena, câmera, luzes e renderer)` | Pessoa 1 | Motor 3D inicializado |
-| `feat: criação dos 27 cubinhos com cores por face` | Pessoa 2 | Cubo estático na tela |
-| `feat: rotação de faces com animação e pivot` | Pessoa 2 | Botões de face funcionando |
-| `feat: detecção de vitória, contador e embaralhar` | Pessoa 3 | Lógica de jogo completa |
-| `feat: câmera orbital e loop de renderização` | Pessoa 3 | Interação final com mouse |
+| `init: estrutura HTML e estilos CSS` | Pedro victor | Canvas, botões, placar e CSS |
+| `feat: setup Three.js (cena, câmera, luzes e renderer)` | Leandro Lima | Motor 3D inicializado |
+| `feat: criação dos 27 cubinhos com cores por face` | Kristyson Alpino | Cubo estático na tela |
+| `feat: rotação de faces com animação e pivot` | Leandro Lima| Botões de face funcionando |
+| `feat: detecção de vitória, contador e embaralhar` | Pedro Victor | Lógica de jogo completa |
+| `feat: câmera orbital e loop de renderização` | Kristyson Alpino | Interação final com mouse |
 
 Para ver as diferenças entre commits:
 ```bash
@@ -172,9 +172,9 @@ git show HASH_DO_COMMIT
 
 | Nome | Commits |
 |---|---|
-| Pessoa 1 | 1 e 2 |
-| Pessoa 2 | 3 e 4 |
-| Pessoa 3 | 5 e 6 |
+| Leandro Lima | 2 e 4 |
+| Kristyson Alpino | 3 e 6 |
+| Pedro Victor | 1 e 5 |
 
 ---
 
